@@ -15,8 +15,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException e) {
         log.warn("잘못된 요청: {}", e.getMessage());
-        return ResponseEntity.badRequest()
-                .body(ApiResponse.error(400, e.getMessage()));
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(404, e.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

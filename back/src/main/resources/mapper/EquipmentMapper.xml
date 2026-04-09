@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.ohtmon.mapper.EquipmentMapper">
+
+    <select id="findAll" resultType="com.example.ohtmon.dto.EquipmentDto$ListResponse">
+        SELECT eq_id, eq_name, eq_type, manufacturer, location, status, install_date
+        FROM equipment
+        <where>
+            <if test="eqType != null and eqType != ''">
+                AND eq_type = #{eqType}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY eq_id
+    </select>
+
+    <select id="findById" resultType="com.example.ohtmon.domain.Equipment">
+        SELECT eq_id, eq_name, eq_type, manufacturer, location, status, install_date, created_at
+        FROM equipment
+        WHERE eq_id = #{eqId}
+    </select>
+
+    <insert id="insert" parameterType="com.example.ohtmon.domain.Equipment">
+        INSERT INTO equipment (eq_id, eq_name, eq_type, manufacturer, location, install_date, status)
+        VALUES (#{eqId}, #{eqName}, #{eqType}, #{manufacturer}, #{location}, #{installDate}, 'RUNNING')
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE equipment
+        SET status = #{status}
+        WHERE eq_id = #{eqId}
+    </update>
+
+    <select id="countByStatus" resultType="com.example.ohtmon.dto.EquipmentDto$StatusCount">
+        SELECT status, COUNT(*) AS count
+        FROM equipment
+        GROUP BY status
+    </select>
+
+</mapper>
