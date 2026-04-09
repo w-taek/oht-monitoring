@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.ohtmon.mapper.ThresholdMapper">
+
+    <select id="findByEqType" resultType="com.example.ohtmon.domain.ThresholdRule">
+        SELECT id, eq_type, sensor_name, caution_value, warning_value, danger_value, updated_at
+        FROM threshold_rule
+        WHERE eq_type = #{eqType}
+    </select>
+
+    <select id="findAll" resultType="com.example.ohtmon.domain.ThresholdRule">
+        SELECT id, eq_type, sensor_name, caution_value, warning_value, danger_value, updated_at
+        FROM threshold_rule
+        ORDER BY eq_type, sensor_name
+    </select>
+
+</mapper>

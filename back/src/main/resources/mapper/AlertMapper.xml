@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.ohtmon.mapper.AlertMapper">
+
+    <insert id="insert" parameterType="com.example.ohtmon.domain.AlertEvent" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO alert_event (eq_id, alert_level, sensor_name, sensor_value, threshold_value)
+        VALUES (#{eqId}, #{alertLevel}, #{sensorName}, #{sensorValue}, #{thresholdValue})
+    </insert>
+
+    <select id="findAll" resultType="com.example.ohtmon.dto.AlertDto$ListResponse">
+        SELECT id, eq_id, alert_level, sensor_name, sensor_value, threshold_value,
+               acknowledged, acknowledged_at, created_at
+        FROM alert_event
+        <where>
+            <if test="eqId != null and eqId != ''">
+                AND eq_id = #{eqId}
+            </if>
+            <if test="level != null and level != ''">
+                AND alert_level = #{level}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*)
+        FROM alert_event
+        <where>
+            <if test="eqId != null and eqId != ''">
+                AND eq_id = #{eqId}
+            </if>
+            <if test="level != null and level != ''">
+                AND alert_level = #{level}
+            </if>
+        </where>
+    </select>
+
+    <update id="acknowledge">
+        UPDATE alert_event
+        SET acknowledged = TRUE, acknowledged_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

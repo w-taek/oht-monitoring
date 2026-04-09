@@ -3,6 +3,7 @@ package com.example.ohtmon.scheduler;
 import com.example.ohtmon.domain.SensorReading;
 import com.example.ohtmon.dto.SensorDto;
 import com.example.ohtmon.mapper.SensorMapper;
+import com.example.ohtmon.service.RuleEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -21,6 +22,7 @@ public class DataReplayScheduler {
 
     private final SensorMapper sensorMapper;
     private final SimpMessagingTemplate messagingTemplate;
+    private final RuleEngine ruleEngine;
 
     /** 장비별 마지막으로 Push한 sensor_reading.id */
     private final Map<String, Long> lastIdMap = new ConcurrentHashMap<>();
@@ -56,6 +58,7 @@ public class DataReplayScheduler {
 
             lastIdMap.put(eqId, data.getId());
 
+            // 1) WebSocket 센서 데이터 Push
             SensorDto.RealtimeMessage message = SensorDto.RealtimeMessage.builder()
                     .eqId(data.getEqId())
                     .pm10(data.getPm10())
@@ -73,6 +76,10 @@ public class DataReplayScheduler {
                     .build();
 
             messagingTemplate.convertAndSend("/topic/sensor/" + eqId, message);
+
+            // 2) 이상감지: eqId 접두사로 장비유형 판별
+            String eqType = eqId.startsWith("OHT") ? "OHT" : "AGV";
+            ruleEngine.evaluate(data, eqType);
         }
 
         log.debug("데이터 리플레이 완료: {}대 장비", EQUIPMENT_IDS.size());
