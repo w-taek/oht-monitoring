@@ -1,7 +1,14 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
+import AppSidebar from './components/AppSidebar.vue'
+import AlertToast from './components/AlertToast.vue'
 </script>
 
 <template>
-  <HelloWorld />
+  <div class="app-layout">
+    <AppSidebar />
+    <main class="main-content">
+      <RouterView />
+    </main>
+    <AlertToast />
+  </div>
 </template>
