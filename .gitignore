@@ -11,3 +11,4 @@ front/dist/
 # OS
 .DS_Store
 *.swp
+tree_result.txt

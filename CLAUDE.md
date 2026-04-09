@@ -177,7 +177,7 @@ COMPLETED 시 해당 장비 status를 자동으로 'RUNNING'으로 복귀.
 ## 빌드 & 실행
 ```bash
 # Backend
-cd back && ./gradlew bootRun
+cd back && ./mvnw spring-boot:run
 
 # Frontend
 cd front && npm install && npm run dev
