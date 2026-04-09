@@ -1,0 +1,13 @@
+# Backend
+back/build/
+back/.gradle/
+back/*.iml
+back/.idea/
+
+# Frontend
+front/node_modules/
+front/dist/
+
+# OS
+.DS_Store
+*.swp
