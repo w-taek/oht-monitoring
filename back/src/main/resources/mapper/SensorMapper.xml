@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.ohtmon.mapper.SensorMapper">
+
+    <!-- 장비의 가장 최근 센서 데이터 1건 -->
+    <select id="findLatest" resultType="com.example.ohtmon.dto.SensorDto$Response">
+        SELECT id, eq_id, collected_at, pm10, pm25, ntc_temp,
+               ct1, ct2, ct3, ct4, ir_temp_max,
+               ex_temp, ex_humidity, state
+        FROM sensor_reading
+        WHERE eq_id = #{eqId}
+        ORDER BY collected_at DESC
+        LIMIT 1
+    </select>
+
+    <!-- 기간별 센서 이력 -->
+    <select id="findHistory" resultType="com.example.ohtmon.dto.SensorDto$Response">
+        SELECT id, eq_id, collected_at, pm10, pm25, ntc_temp,
+               ct1, ct2, ct3, ct4, ir_temp_max,
+               ex_temp, ex_humidity, state
+        FROM sensor_reading
+        WHERE eq_id = #{eqId}
+        <if test="from != null and from != ''">
+            AND collected_at &gt;= #{from}
+        </if>
+        <if test="to != null and to != ''">
+            AND collected_at &lt;= #{to}
+        </if>
+        ORDER BY collected_at ASC
+        LIMIT 1000
+    </select>
+
+    <!-- 전체 장비의 최신 상태 요약: 각 장비의 가장 최근 state를 기준으로 카운트 -->
+    <select id="findStateSummary" resultType="com.example.ohtmon.dto.SensorDto$StateCount">
+        SELECT latest.state AS state, COUNT(*) AS count
+        FROM (
+            SELECT sr.eq_id, sr.state
+            FROM sensor_reading sr
+            INNER JOIN (
+                SELECT eq_id, MAX(collected_at) AS max_collected
+                FROM sensor_reading
+                GROUP BY eq_id
+            ) t ON sr.eq_id = t.eq_id AND sr.collected_at = t.max_collected
+        ) latest
+        GROUP BY latest.state
+    </select>
+
+    <!-- 리플레이용: lastId 이후의 다음 데이터 1건 -->
+    <select id="findNextReplayData" resultType="com.example.ohtmon.domain.SensorReading">
+        SELECT id, eq_id, collected_at, pm10, pm25, pm10_val, ntc_temp,
+               ct1, ct2, ct3, ct4, ir_temp_max, ir_x, ir_y,
+               ex_temp, ex_humidity, ex_lux, state,
+               cumulative_operating_day, equipment_history
+        FROM sensor_reading
+        WHERE eq_id = #{eqId} AND id &gt; #{lastId}
+        ORDER BY id ASC
+        LIMIT 1
+    </select>
+
+    <!-- 장비별 데이터 건수 -->
+    <select id="countByEqId" resultType="long">
+        SELECT COUNT(*) FROM sensor_reading WHERE eq_id = #{eqId}
+    </select>
+
+    <!-- 전체 데이터 건수 -->
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*) FROM sensor_reading
+    </select>
+
+</mapper>
