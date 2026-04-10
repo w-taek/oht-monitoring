@@ -26,6 +26,17 @@ const routes = [
     name: 'Alerts',
     component: () => import('@/views/AlertListView.vue'),
   },
+  {
+    path: '/maintenance',
+    name: 'Maintenance',
+    component: () => import('@/views/MaintOrderListView.vue'),
+  },
+  {
+    path: '/maintenance/:id',
+    name: 'MaintOrderDetail',
+    component: () => import('@/views/MaintOrderDetailView.vue'),
+    props: true,
+  },
 ]
 
 const router = createRouter({

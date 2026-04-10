@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.ohtmon.mapper.MaintOrderMapper">
+
+    <!-- 목록 조회 (장비명 JOIN) -->
+    <select id="findAll" resultType="com.example.ohtmon.dto.MaintOrderDto$ListResponse">
+        SELECT mo.id, mo.eq_id, e.eq_name,
+               mo.order_type, mo.priority, mo.status,
+               mo.title, mo.assignee, mo.created_at
+        FROM maint_order mo
+        JOIN equipment e ON mo.eq_id = e.eq_id
+        <where>
+            <if test="eqId != null and eqId != ''">
+                AND mo.eq_id = #{eqId}
+            </if>
+            <if test="status != null and status != ''">
+                AND mo.status = #{status}
+            </if>
+        </where>
+        ORDER BY mo.created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <!-- 총 건수 -->
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*)
+        FROM maint_order
+        <where>
+            <if test="eqId != null and eqId != ''">
+                AND eq_id = #{eqId}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!-- 상세 조회 (장비명 + 알림정보 LEFT JOIN) -->
+    <select id="findById" resultType="com.example.ohtmon.dto.MaintOrderDto$DetailResponse">
+        SELECT mo.id, mo.eq_id, e.eq_name,
+               mo.alert_event_id,
+               ae.alert_level, ae.sensor_name AS alert_sensor_name,
+               mo.order_type, mo.priority, mo.status,
+               mo.title, mo.description, mo.assignee, mo.action_taken,
+               mo.created_at, mo.started_at, mo.completed_at
+        FROM maint_order mo
+        JOIN equipment e ON mo.eq_id = e.eq_id
+        LEFT JOIN alert_event ae ON mo.alert_event_id = ae.id
+        WHERE mo.id = #{id}
+    </select>
+
+    <!-- 등록 -->
+    <insert id="insert" parameterType="com.example.ohtmon.domain.MaintOrder" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO maint_order (eq_id, alert_event_id, order_type, priority, title, description)
+        VALUES (#{eqId}, #{alertEventId}, #{orderType}, #{priority}, #{title}, #{description})
+    </insert>
+
+    <!-- 상태 변경 -->
+    <update id="updateStatus">
+        UPDATE maint_order
+        SET status = #{status}
+            <if test="assignee != null">
+                , assignee = #{assignee}
+            </if>
+            <if test="actionTaken != null">
+                , action_taken = #{actionTaken}
+            </if>
+            <if test="startedAt != null">
+                , started_at = #{startedAt}
+            </if>
+            <if test="completedAt != null">
+                , completed_at = #{completedAt}
+            </if>
+        WHERE id = #{id}
+    </update>
+
+</mapper>

@@ -19,6 +19,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(404, e.getMessage()));
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalState(IllegalStateException e) {
+        log.warn("잘못된 상태 전이: {}", e.getMessage());
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(400, e.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getFieldErrors().stream()

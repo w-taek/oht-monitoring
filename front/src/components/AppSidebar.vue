@@ -7,6 +7,7 @@ const navItems = [
   { path: '/dashboard', label: '대시보드', icon: '📊' },
   { path: '/equipment', label: '장비 목록', icon: '🏭' },
   { path: '/alerts', label: '알림 이력', icon: '🔔' },
+  { path: '/maintenance', label: '정비 오더', icon: '🔧' },
 ]
 
 function isActive(path) {
