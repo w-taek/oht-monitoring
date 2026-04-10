@@ -2,7 +2,8 @@ import { ref, onUnmounted } from 'vue'
 import { Client } from '@stomp/stompjs'
 import SockJS from 'sockjs-client/dist/sockjs'
 
-const WS_URL = 'http://localhost:8080/ws'
+const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+const WS_URL = `${BASE}/ws`
 const MAX_RETRIES = 3
 
 export function useWebSocket() {
