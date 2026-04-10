@@ -21,6 +21,12 @@ public interface SensorMapper {
     SensorReading findNextReplayData(@Param("eqId") String eqId,
                                      @Param("lastId") long lastId);
 
+    SensorReading findFirstByState(@Param("eqId") String eqId,
+                                    @Param("minState") int minState);
+
+    SensorReading findNextNormalAfter(@Param("eqId") String eqId,
+                                      @Param("afterId") long afterId);
+
     long countByEqId(@Param("eqId") String eqId);
 
     long countAll();

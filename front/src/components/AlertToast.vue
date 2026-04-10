@@ -39,7 +39,6 @@ onUnmounted(() => {
           background: getColors(toast.alertLevel).bg,
           borderLeftColor: getColors(toast.alertLevel).border,
         }"
-        @click="removeToast(toast.id)"
       >
         <div class="toast-header">
           <span
@@ -48,7 +47,10 @@ onUnmounted(() => {
           >
             {{ toast.alertLevel }}
           </span>
-          <span class="toast-eq">{{ toast.eqId }}</span>
+          <div class="toast-header-right">
+            <span class="toast-eq">{{ toast.eqId }}</span>
+            <button class="toast-close" @click="removeToast(toast.id)">&times;</button>
+          </div>
         </div>
         <div class="toast-body">
           {{ toast.sensorName }} = {{ toast.sensorValue?.toFixed(1) }}
@@ -60,20 +62,35 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast-container > * {
+  pointer-events: auto;
+}
+
 .toast-item {
-  min-width: 280px;
-  padding: 12px 16px;
-  border-radius: 8px;
+  min-width: 300px;
+  max-width: 380px;
+  padding: 14px 16px;
+  border-radius: 10px;
   border-left: 4px solid;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
 }
 
 .toast-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .toast-level {
@@ -81,10 +98,33 @@ onUnmounted(() => {
   font-size: 13px;
 }
 
+.toast-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .toast-eq {
   font-size: 12px;
   color: var(--color-text-secondary);
   font-weight: 600;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.toast-close:hover {
+  opacity: 1;
+  color: var(--color-text);
 }
 
 .toast-body {
@@ -94,17 +134,17 @@ onUnmounted(() => {
 
 /* Transition */
 .toast-enter-active {
-  transition: all 0.3s ease;
+  transition: all 0.35s ease;
 }
 .toast-leave-active {
   transition: all 0.3s ease;
 }
 .toast-enter-from {
   opacity: 0;
-  transform: translateX(100px);
+  transform: translateX(80px) scale(0.95);
 }
 .toast-leave-to {
   opacity: 0;
-  transform: translateX(100px);
+  transform: translateX(80px) scale(0.95);
 }
 </style>

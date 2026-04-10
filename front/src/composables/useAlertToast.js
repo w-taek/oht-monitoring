@@ -3,6 +3,9 @@ import { reactive } from 'vue'
 const toasts = reactive([])
 let idCounter = 0
 
+const MAX_TOASTS = 3
+const AUTO_CLOSE_MS = 5000
+
 export function useAlertToast() {
   function addToast(alert) {
     const id = ++idCounter
@@ -15,10 +18,15 @@ export function useAlertToast() {
       thresholdValue: alert.thresholdValue,
     })
 
-    // 3초 후 자동 제거
+    // 최대 동시 3개 유지 — 초과 시 가장 오래된 것 제거
+    while (toasts.length > MAX_TOASTS) {
+      toasts.shift()
+    }
+
+    // 5초 후 자동 제거
     setTimeout(() => {
       removeToast(id)
-    }, 3000)
+    }, AUTO_CLOSE_MS)
   }
 
   function removeToast(id) {

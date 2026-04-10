@@ -82,11 +82,13 @@ public class RuleEngine {
             }
         }
 
-        // CAUTION 이상이면 알림 생성
         if (worstLevel != null) {
             log.warn("[ALERT] {} | {}={} > {}({})",
                     data.getEqId(), worstSensor, worstValue, worstLevel, worstThreshold);
             alertService.createAlert(data.getEqId(), worstLevel, worstSensor, worstValue, worstThreshold);
+        } else {
+            // 정상(state=0) → 억제 타이머 리셋
+            alertService.resetSuppression(data.getEqId());
         }
     }
 
