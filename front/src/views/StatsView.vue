@@ -213,7 +213,7 @@ async function fetchTrend() {
 async function downloadExcel() {
   try {
     const token = localStorage.getItem('token')
-    const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+    const base = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
     const res = await fetch(`${base}/api/v1/stats/export`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
