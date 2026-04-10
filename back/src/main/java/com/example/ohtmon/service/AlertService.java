@@ -89,6 +89,18 @@ public class AlertService {
     }
 
     /**
+     * 서버 시작 시 모든 장비에 억제 타이머 프라이밍
+     * → 첫 리플레이 루프에서 DANGER 토스트 폭탄 방지
+     */
+    public void primeSuppressionAll(List<String> eqIds) {
+        Instant now = Instant.now();
+        for (String eqId : eqIds) {
+            lastAlertTimeMap.put(eqId, now);
+        }
+        log.info("알림 억제 프라이밍 완료: {}대 장비 (3분간 알림 억제)", eqIds.size());
+    }
+
+    /**
      * 알림 목록 조회 (페이지네이션)
      */
     public AlertDto.PageResponse getAlerts(String eqId, String level, int page, int size) {

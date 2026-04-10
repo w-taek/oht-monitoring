@@ -10,6 +10,9 @@ const equipmentList = ref([])
 const recentAlerts = ref([])
 const loading = ref(true)
 
+// 상태 필터: null=전체, 0=정상, 1=관심, 2=경고, 3=위험
+const activeFilter = ref(null)
+
 const statusCards = computed(() => [
   { label: '정상', count: summary.value.normal, state: 0, color: 'var(--color-normal)', bg: '#ecfdf5' },
   { label: '관심', count: summary.value.caution, state: 1, color: 'var(--color-caution)', bg: '#eff6ff' },
@@ -17,6 +20,7 @@ const statusCards = computed(() => [
   { label: '위험', count: summary.value.danger, state: 3, color: 'var(--color-danger)', bg: '#fef2f2' },
 ])
 
+// 장비 status → 센서 state 매핑 (필터용)
 const statusMap = {
   RUNNING: 0,
   STOPPED: 1,
@@ -25,6 +29,18 @@ const statusMap = {
 
 function getEquipmentState(status) {
   return statusMap[status] ?? 0
+}
+
+// 필터된 장비 목록
+const filteredEquipment = computed(() => {
+  if (activeFilter.value === null) return equipmentList.value
+  return equipmentList.value.filter(
+    (eq) => getEquipmentState(eq.status) === activeFilter.value
+  )
+})
+
+function toggleFilter(state) {
+  activeFilter.value = activeFilter.value === state ? null : state
 }
 
 const levelMap = {
@@ -70,13 +86,15 @@ onMounted(fetchData)
     <div v-if="loading" class="loading">데이터를 불러오는 중...</div>
 
     <template v-else>
-      <!-- 상태 카운트 카드 -->
+      <!-- 상태 카운트 카드 (클릭으로 필터) -->
       <div class="status-cards">
         <div
           v-for="card in statusCards"
           :key="card.label"
           class="status-card"
+          :class="{ active: activeFilter === card.state }"
           :style="{ borderTopColor: card.color }"
+          @click="toggleFilter(card.state)"
         >
           <div class="status-card-count" :style="{ color: card.color }">
             {{ card.count }}
@@ -87,10 +105,27 @@ onMounted(fetchData)
 
       <!-- 장비 그리드 -->
       <section class="section">
-        <h2 class="section-title">장비 현황</h2>
+        <div class="section-header">
+          <h2 class="section-title">장비 현황</h2>
+          <div class="filter-chips">
+            <button
+              class="filter-chip"
+              :class="{ active: activeFilter === null }"
+              @click="activeFilter = null"
+            >전체 ({{ equipmentList.length }})</button>
+            <button
+              v-for="card in statusCards"
+              :key="card.state"
+              class="filter-chip"
+              :class="{ active: activeFilter === card.state }"
+              :style="activeFilter === card.state ? { background: card.color, color: '#fff', borderColor: card.color } : {}"
+              @click="toggleFilter(card.state)"
+            >{{ card.label }} ({{ card.count }})</button>
+          </div>
+        </div>
         <div class="equipment-grid">
           <div
-            v-for="eq in equipmentList"
+            v-for="eq in filteredEquipment"
             :key="eq.eqId"
             class="eq-card card"
             @click="router.push(`/dashboard/${eq.eqId}`)"
@@ -156,6 +191,20 @@ onMounted(fetchData)
   padding: 20px;
   border-top: 3px solid;
   text-align: center;
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.status-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.status-card.active {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
 }
 
 .status-card-count {
@@ -175,10 +224,43 @@ onMounted(fetchData)
   margin-bottom: 28px;
 }
 
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
 .section-title {
   font-size: 18px;
   font-weight: 600;
-  margin-bottom: 12px;
+}
+
+.filter-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.filter-chip {
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-chip:hover {
+  border-color: var(--color-text-secondary);
+}
+
+.filter-chip.active {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
 }
 
 .equipment-grid {

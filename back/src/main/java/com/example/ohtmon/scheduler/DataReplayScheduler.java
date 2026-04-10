@@ -63,7 +63,7 @@ public class DataReplayScheduler {
         log.info("[AUTO-RECOVERY SCHEDULED] {} → 경고 후 id={} 로 자동 복귀 예정", eqId, recoveryId);
     }
 
-    @Scheduled(fixedRate = 2000)
+    @Scheduled(fixedRate = 2000, initialDelay = 5000)
     public void replay() {
         for (String eqId : EQUIPMENT_IDS) {
             long lastId = lastIdMap.getOrDefault(eqId, 0L);

@@ -1,6 +1,7 @@
 package com.example.ohtmon.config;
 
 import com.example.ohtmon.mapper.SensorMapper;
+import com.example.ohtmon.service.AlertService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -11,6 +12,8 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -20,11 +23,15 @@ public class SensorDataInitializer implements ApplicationRunner {
     private final SensorMapper sensorMapper;
     private final DataSource dataSource;
     private final JdbcTemplate jdbcTemplate;
+    private final AlertService alertService;
 
     @Override
     public void run(ApplicationArguments args) {
         // 서버 시작 시 리플레이 알림 초기화 (데모용 데이터이므로)
         cleanupReplayAlerts();
+
+        // 알림 억제 프라이밍 → 첫 리플레이 루프에서 DANGER 폭탄 방지
+        primeAlertSuppression();
 
         long count = sensorMapper.countAll();
         if (count > 0) {
@@ -45,16 +52,23 @@ public class SensorDataInitializer implements ApplicationRunner {
         }
     }
 
+    private void primeAlertSuppression() {
+        List<String> eqIds = new ArrayList<>();
+        for (int i = 1; i <= 20; i++) {
+            eqIds.add(String.format("OHT-%02d", i));
+            eqIds.add(String.format("AGV-%02d", i));
+        }
+        alertService.primeSuppressionAll(eqIds);
+    }
+
     private void cleanupReplayAlerts() {
         try {
-            // maint_order의 FK 참조가 있는 알림은 제외하고 삭제
-            int deleted = jdbcTemplate.update(
-                    "DELETE FROM alert_event WHERE id NOT IN (SELECT alert_event_id FROM maint_order WHERE alert_event_id IS NOT NULL)");
-            if (deleted > 0) {
-                log.info("리플레이 알림 초기화: {}건 삭제 (정비 오더 연결 건은 유지)", deleted);
-            }
+            // FK 순서: maint_order(alert_event_id FK) → alert_event
+            int maintDeleted = jdbcTemplate.update("DELETE FROM maint_order");
+            int alertDeleted = jdbcTemplate.update("DELETE FROM alert_event");
+            log.info("데모 데이터 초기화: 정비 오더 {}건, 알림 {}건 삭제", maintDeleted, alertDeleted);
         } catch (Exception e) {
-            log.warn("알림 초기화 실패 (무시 가능): {}", e.getMessage());
+            log.warn("데모 데이터 초기화 실패 (무시 가능): {}", e.getMessage());
         }
     }
 }
