@@ -48,6 +48,11 @@ const routes = [
     name: 'Thresholds',
     component: () => import('@/views/ThresholdView.vue'),
   },
+  {
+    path: '/stats',
+    name: 'Stats',
+    component: () => import('@/views/StatsView.vue'),
+  },
 ]
 
 const router = createRouter({

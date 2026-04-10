@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.ohtmon.mapper.StatsMapper">
+
+    <!-- 장비별 센서 평균/최대/최소 -->
+    <select id="sensorAvgByEquipment" resultType="com.example.ohtmon.dto.StatsDto$SensorAvg">
+        SELECT eq_id,
+               ROUND(AVG(pm10), 2)        AS pm10_avg,
+               ROUND(MAX(pm10), 2)        AS pm10_max,
+               ROUND(MIN(pm10), 2)        AS pm10_min,
+               ROUND(AVG(pm25), 2)        AS pm25_avg,
+               ROUND(MAX(pm25), 2)        AS pm25_max,
+               ROUND(AVG(ntc_temp), 2)    AS ntc_temp_avg,
+               ROUND(MAX(ntc_temp), 2)    AS ntc_temp_max,
+               ROUND(AVG(ct1), 2)         AS ct1_avg,
+               ROUND(MAX(ct1), 2)         AS ct1_max,
+               ROUND(AVG(ct2), 2)         AS ct2_avg,
+               ROUND(MAX(ct2), 2)         AS ct2_max,
+               ROUND(AVG(ct3), 2)         AS ct3_avg,
+               ROUND(MAX(ct3), 2)         AS ct3_max,
+               ROUND(AVG(ct4), 2)         AS ct4_avg,
+               ROUND(MAX(ct4), 2)         AS ct4_max,
+               ROUND(AVG(ir_temp_max), 2) AS ir_temp_max_avg,
+               ROUND(MAX(ir_temp_max), 2) AS ir_temp_max_max
+        FROM sensor_reading
+        <where>
+            <if test="eqId != null and eqId != ''">
+                eq_id = #{eqId}
+            </if>
+        </where>
+        GROUP BY eq_id
+        ORDER BY eq_id
+    </select>
+
+    <!-- 전체 상태 분포 -->
+    <select id="stateDistribution" resultType="com.example.ohtmon.dto.StatsDto$StateDistribution">
+        SELECT state,
+               COUNT(*)                                            AS count,
+               ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM sensor_reading), 2) AS ratio
+        FROM sensor_reading
+        GROUP BY state
+        ORDER BY state
+    </select>
+
+    <!-- 위험 비율 높은 장비 TOP N -->
+    <select id="dangerRanking" resultType="com.example.ohtmon.dto.StatsDto$DangerRanking">
+        SELECT sr.eq_id,
+               e.eq_name,
+               COUNT(*)                                              AS total_count,
+               SUM(CASE WHEN sr.state = 3 THEN 1 ELSE 0 END)        AS danger_count,
+               ROUND(SUM(CASE WHEN sr.state = 3 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS danger_ratio
+        FROM sensor_reading sr
+        JOIN equipment e ON sr.eq_id = e.eq_id
+        GROUP BY sr.eq_id, e.eq_name
+        ORDER BY danger_ratio DESC
+        LIMIT #{limit}
+    </select>
+
+    <!--
+        건강 점수 원시 데이터:
+        이탈비율 = 해당 센서가 caution 임계값을 초과한 횟수 / 전체 측정 횟수
+        점수 = 100 - (pm10_이탈×0.3 + ntc_이탈×0.3 + ct_이탈×0.2 + ir_이탈×0.2) × 100
+        ct_이탈 = ct1~ct4 중 하나라도 초과한 비율
+    -->
+    <select id="healthScoreRaw" resultType="com.example.ohtmon.dto.StatsDto$HealthScore">
+        SELECT sr.eq_id,
+               e.eq_name,
+               ROUND(
+                 100 - (
+                   (SUM(CASE WHEN sr.pm10 &gt;= #{pm10Caution} THEN 1 ELSE 0 END) * 1.0 / COUNT(*)) * 0.3 +
+                   (SUM(CASE WHEN sr.ntc_temp &gt;= #{ntcCaution} THEN 1 ELSE 0 END) * 1.0 / COUNT(*)) * 0.3 +
+                   (SUM(CASE WHEN sr.ct1 &gt;= #{ctCaution} OR sr.ct2 &gt;= #{ctCaution} OR sr.ct3 &gt;= #{ctCaution} OR sr.ct4 &gt;= #{ctCaution} THEN 1 ELSE 0 END) * 1.0 / COUNT(*)) * 0.2 +
+                   (SUM(CASE WHEN sr.ir_temp_max &gt;= #{irCaution} THEN 1 ELSE 0 END) * 1.0 / COUNT(*)) * 0.2
+                 ) * 100
+               , 1) AS score,
+               ROUND(SUM(CASE WHEN sr.pm10 &gt;= #{pm10Caution} THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS pm10_deviation,
+               ROUND(SUM(CASE WHEN sr.ntc_temp &gt;= #{ntcCaution} THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS ntc_deviation,
+               ROUND(SUM(CASE WHEN sr.ct1 &gt;= #{ctCaution} OR sr.ct2 &gt;= #{ctCaution} OR sr.ct3 &gt;= #{ctCaution} OR sr.ct4 &gt;= #{ctCaution} THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS ct_deviation,
+               ROUND(SUM(CASE WHEN sr.ir_temp_max &gt;= #{irCaution} THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS ir_deviation
+        FROM sensor_reading sr
+        JOIN equipment e ON sr.eq_id = e.eq_id
+        <where>
+            <if test="eqId != null and eqId != ''">
+                sr.eq_id = #{eqId}
+            </if>
+        </where>
+        GROUP BY sr.eq_id, e.eq_name
+        ORDER BY score ASC
+    </select>
+
+    <!-- 시계열 센서 추이: 데이터를 20구간으로 나눠 집계 -->
+    <select id="sensorTrend" resultType="com.example.ohtmon.dto.StatsDto$SensorTrend">
+        SELECT bucket AS hour,
+               ROUND(AVG(val), 2) AS avg_value,
+               ROUND(MAX(val), 2) AS max_value
+        FROM (
+            SELECT ${sensorName} AS val,
+                   NTILE(20) OVER (ORDER BY collected_at) AS bucket
+            FROM sensor_reading
+            WHERE eq_id = #{eqId}
+        ) t
+        GROUP BY bucket
+        ORDER BY bucket
+    </select>
+
+</mapper>
