@@ -1,9 +1,10 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import api from '@/api/axios'
 
 const router = useRouter()
+const route = useRoute()
 const orders = ref([])
 const loading = ref(true)
 const page = ref(0)
@@ -17,6 +18,7 @@ const showCreateModal = ref(false)
 // 생성 폼
 const createForm = ref({
   eqId: '',
+  alertEventId: null,
   orderType: 'CORRECTIVE',
   priority: 'MEDIUM',
   title: '',
@@ -64,7 +66,11 @@ async function submitCreate() {
   try {
     await api.post('/api/v1/maintenance', createForm.value)
     showCreateModal.value = false
-    createForm.value = { eqId: '', orderType: 'CORRECTIVE', priority: 'MEDIUM', title: '', description: '' }
+    createForm.value = { eqId: '', alertEventId: null, orderType: 'CORRECTIVE', priority: 'MEDIUM', title: '', description: '' }
+    // 쿼리파라미터 정리
+    if (route.query.alertEventId) {
+      router.replace({ path: '/maintenance' })
+    }
     page.value = 0
     fetchOrders()
   } catch (e) {
@@ -76,7 +82,26 @@ function prevPage() { if (page.value > 0) { page.value--; fetchOrders() } }
 function nextPage() { if (page.value < totalPages.value - 1) { page.value++; fetchOrders() } }
 
 watch(filterStatus, () => { page.value = 0; fetchOrders() })
-onMounted(fetchOrders)
+
+onMounted(() => {
+  fetchOrders()
+
+  // 알림에서 넘어온 경우: 모달 자동 오픈 + 폼 프리필
+  const q = route.query
+  if (q.alertEventId) {
+    const level = q.alertLevel || ''
+    const priority = level === 'DANGER' ? 'CRITICAL' : level === 'WARNING' ? 'HIGH' : 'MEDIUM'
+    createForm.value = {
+      eqId: q.eqId || '',
+      alertEventId: Number(q.alertEventId),
+      orderType: level === 'DANGER' ? 'EMERGENCY' : 'CORRECTIVE',
+      priority,
+      title: `[${level}] ${q.eqId || ''} ${q.sensorName || ''} 이상 감지`,
+      description: `알림 #${q.alertEventId}에서 생성된 정비 오더입니다.`,
+    }
+    showCreateModal.value = true
+  }
+})
 </script>
 
 <template>
@@ -164,10 +189,13 @@ onMounted(fetchOrders)
       <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
         <div class="modal">
           <h2 class="modal-title">정비 오더 생성</h2>
+          <div v-if="createForm.alertEventId" class="alert-link-banner">
+            연결된 알림: #{{ createForm.alertEventId }}
+          </div>
           <form @submit.prevent="submitCreate" class="modal-form">
             <label>
               장비 ID *
-              <input v-model="createForm.eqId" required placeholder="예: OHT-01" />
+              <input v-model="createForm.eqId" required placeholder="예: OHT-01" :readonly="!!createForm.alertEventId" />
             </label>
             <label>
               오더 유형 *
@@ -276,6 +304,16 @@ onMounted(fetchOrders)
 .modal-form textarea:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.alert-link-banner {
+  background: #eff6ff;
+  color: var(--color-caution);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 6px;
+  margin-bottom: 12px;
 }
 
 .modal-actions {

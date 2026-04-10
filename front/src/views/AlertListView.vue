@@ -1,8 +1,11 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '@/api/axios'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { useWebSocket } from '@/composables/useWebSocket'
+
+const router = useRouter()
 
 const alerts = ref([])
 const loading = ref(true)
@@ -59,6 +62,18 @@ async function acknowledge(id) {
   } catch (e) {
     console.error('알림 확인 실패', e)
   }
+}
+
+function createOrderFromAlert(alert) {
+  router.push({
+    path: '/maintenance',
+    query: {
+      alertEventId: alert.id,
+      eqId: alert.eqId,
+      alertLevel: alert.alertLevel,
+      sensorName: alert.sensorName,
+    },
+  })
 }
 
 function prevPage() {
@@ -144,6 +159,7 @@ onUnmounted(() => {
             <th>값</th>
             <th>임계값</th>
             <th>확인</th>
+            <th>조치</th>
           </tr>
         </thead>
         <tbody>
@@ -168,6 +184,14 @@ onUnmounted(() => {
                 확인
               </button>
               <span v-else class="ack-done">확인됨</span>
+            </td>
+            <td>
+              <button
+                class="btn btn-sm btn-outline create-order-btn"
+                @click="createOrderFromAlert(alert)"
+              >
+                🔧 정비 오더
+              </button>
             </td>
           </tr>
         </tbody>
@@ -201,5 +225,10 @@ onUnmounted(() => {
   font-size: 12px;
   color: var(--color-normal);
   font-weight: 600;
+}
+
+.create-order-btn {
+  white-space: nowrap;
+  font-size: 11px;
 }
 </style>
