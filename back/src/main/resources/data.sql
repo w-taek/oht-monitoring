@@ -51,8 +51,10 @@ INSERT IGNORE INTO equipment (eq_id, eq_name, eq_type, manufacturer, location, i
 
 -- -----------------------------------------------
 -- 2. 임계값 규칙 16행 (센서 8종 x 장비유형 2종)
+--    서버 재시작 시 중복 방지: 기존 데이터 삭제 후 재삽입
 -- -----------------------------------------------
-INSERT IGNORE INTO threshold_rule (eq_type, sensor_name, caution_value, warning_value, danger_value) VALUES
+DELETE FROM threshold_rule;
+INSERT INTO threshold_rule (eq_type, sensor_name, caution_value, warning_value, danger_value) VALUES
 -- OHT 임계값
 ('OHT', 'pm10',        80,    150,    300),
 ('OHT', 'pm25',        35,     75,    150),
@@ -73,9 +75,11 @@ INSERT IGNORE INTO threshold_rule (eq_type, sensor_name, caution_value, warning_
 ('AGV', 'ir_temp_max', 50,     65,     85);
 
 -- -----------------------------------------------
--- 3. 사용자 3명 (비밀번호: password123 → BCrypt 해시)
+-- 3. 사용자 3명
+--    admin: admin1234, engineer1/2: eng1234
+--    REPLACE로 기존 데이터 갱신 (username UNIQUE 활용)
 -- -----------------------------------------------
-INSERT IGNORE INTO `user` (username, password, name, role) VALUES
-('admin',     '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '관리자',    'ADMIN'),
-('engineer1', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '엔지니어1', 'ENGINEER'),
-('engineer2', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '엔지니어2', 'ENGINEER');
+REPLACE INTO `user` (username, password, name, role) VALUES
+('admin',     '$2a$10$yBVzJjg0dNT/PNFJGYwtWOCMDQKsn7qprEs6AQfWDsosbs3opwHYm', '관리자',    'ADMIN'),
+('engineer1', '$2a$10$iBlZxfmrrQu4719MvvsXyO6fYdvUtgZUzuzUXKyM0JBYNghVfsgtG', '엔지니어1', 'ENGINEER'),
+('engineer2', '$2a$10$iBlZxfmrrQu4719MvvsXyO6fYdvUtgZUzuzUXKyM0JBYNghVfsgtG', '엔지니어2', 'ENGINEER');

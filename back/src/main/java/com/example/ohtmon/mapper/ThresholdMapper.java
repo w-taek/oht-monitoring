@@ -12,4 +12,9 @@ public interface ThresholdMapper {
     List<ThresholdRule> findByEqType(@Param("eqType") String eqType);
 
     List<ThresholdRule> findAll();
+
+    void updateById(@Param("id") int id,
+                    @Param("cautionValue") double cautionValue,
+                    @Param("warningValue") double warningValue,
+                    @Param("dangerValue") double dangerValue);
 }

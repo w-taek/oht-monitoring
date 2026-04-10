@@ -6,6 +6,12 @@ const routes = [
     redirect: '/dashboard',
   },
   {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/LoginView.vue'),
+    meta: { requiresAuth: false },
+  },
+  {
     path: '/dashboard',
     name: 'Dashboard',
     component: () => import('@/views/DashboardView.vue'),
@@ -37,11 +43,30 @@ const routes = [
     component: () => import('@/views/MaintOrderDetailView.vue'),
     props: true,
   },
+  {
+    path: '/admin/thresholds',
+    name: 'Thresholds',
+    component: () => import('@/views/ThresholdView.vue'),
+  },
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+// 라우트 가드: 토큰 없으면 /login으로 리다이렉트
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('token')
+  const requiresAuth = to.meta.requiresAuth !== false
+
+  if (requiresAuth && !token) {
+    next('/login')
+  } else if (to.path === '/login' && token) {
+    next('/dashboard')
+  } else {
+    next()
+  }
 })
 
 export default router

@@ -16,4 +16,12 @@
         ORDER BY eq_type, sensor_name
     </select>
 
+    <update id="updateById">
+        UPDATE threshold_rule
+        SET caution_value = #{cautionValue},
+            warning_value = #{warningValue},
+            danger_value  = #{dangerValue}
+        WHERE id = #{id}
+    </update>
+
 </mapper>

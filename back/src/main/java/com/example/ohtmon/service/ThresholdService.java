@@ -39,6 +39,18 @@ public class ThresholdService {
         return cache.getOrDefault(eqType, Collections.emptyList());
     }
 
+    public List<ThresholdRule> getAllThresholds() {
+        return thresholdMapper.findAll();
+    }
+
+    public void updateThreshold(int id, double cautionValue, double warningValue, double dangerValue) {
+        if (cautionValue >= warningValue || warningValue >= dangerValue) {
+            throw new IllegalArgumentException("임계값은 관심 < 경고 < 위험 순서여야 합니다");
+        }
+        thresholdMapper.updateById(id, cautionValue, warningValue, dangerValue);
+        refreshCache();
+    }
+
     /** 캐시 갱신 (임계값 수정 시 호출) */
     public void refreshCache() {
         loadCache();
