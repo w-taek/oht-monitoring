@@ -1,71 +1,96 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api/axios'
 import StatusBadge from '@/components/StatusBadge.vue'
+import { useWebSocket } from '@/composables/useWebSocket'
 
 const router = useRouter()
-const summary = ref({ normal: 0, caution: 0, warning: 0, danger: 0 })
-const equipmentList = ref([])
-const recentAlerts = ref([])
 const loading = ref(true)
 
-// 상태 필터: null=전체, 0=정상, 1=관심, 2=경고, 3=위험
+// 장비별 실시간 센서 상태: { eqId → state(0~3) }
+const liveStateMap = ref({})
+// 장비 목록 (REST로 1회 로드)
+const equipmentList = ref([])
+// 최근 알림
+const recentAlerts = ref([])
+
+// 필터: null=전체, 0=정상, 1=관심, 2=경고, 3=위험
 const activeFilter = ref(null)
 
-const statusCards = computed(() => [
-  { label: '정상', count: summary.value.normal, state: 0, color: 'var(--color-normal)', bg: '#ecfdf5' },
-  { label: '관심', count: summary.value.caution, state: 1, color: 'var(--color-caution)', bg: '#eff6ff' },
-  { label: '경고', count: summary.value.warning, state: 2, color: 'var(--color-warning)', bg: '#fffbeb' },
-  { label: '위험', count: summary.value.danger, state: 3, color: 'var(--color-danger)', bg: '#fef2f2' },
-])
+const { connect, subscribe, disconnect } = useWebSocket()
 
-// 장비 status → 센서 state 매핑 (필터용)
-const statusMap = {
-  RUNNING: 0,
-  STOPPED: 1,
-  MAINTENANCE: 2,
+const stateLabels = ['정상', '관심', '경고', '위험']
+const stateColors = ['var(--color-normal)', 'var(--color-caution)', 'var(--color-warning)', 'var(--color-danger)']
+
+// 장비별 현재 상태를 liveStateMap에서 가져오기 (없으면 0)
+function getEqState(eqId) {
+  return liveStateMap.value[eqId] ?? 0
 }
 
-function getEquipmentState(status) {
-  return statusMap[status] ?? 0
-}
+// 상태별 카운트 (liveStateMap 기반 → 실시간 반영)
+const statusCards = computed(() => {
+  const counts = [0, 0, 0, 0]
+  for (const eq of equipmentList.value) {
+    const state = getEqState(eq.eqId)
+    counts[state] = (counts[state] || 0) + 1
+  }
+  return [
+    { label: '정상', count: counts[0], state: 0, color: stateColors[0], bg: '#ecfdf5' },
+    { label: '관심', count: counts[1], state: 1, color: stateColors[1], bg: '#eff6ff' },
+    { label: '경고', count: counts[2], state: 2, color: stateColors[2], bg: '#fffbeb' },
+    { label: '위험', count: counts[3], state: 3, color: stateColors[3], bg: '#fef2f2' },
+  ]
+})
 
-// 필터된 장비 목록
+// 필터된 장비
 const filteredEquipment = computed(() => {
   if (activeFilter.value === null) return equipmentList.value
-  return equipmentList.value.filter(
-    (eq) => getEquipmentState(eq.status) === activeFilter.value
-  )
+  return equipmentList.value.filter((eq) => getEqState(eq.eqId) === activeFilter.value)
+})
+
+// 필터된 알림 (필터 연동)
+const levelToState = { CAUTION: 1, WARNING: 2, DANGER: 3 }
+const stateToLevels = { 1: ['CAUTION'], 2: ['WARNING'], 3: ['DANGER'] }
+
+const filteredAlerts = computed(() => {
+  if (activeFilter.value === null) return recentAlerts.value
+  const levels = stateToLevels[activeFilter.value]
+  if (!levels) {
+    // 정상(0) → 알림 없음
+    return []
+  }
+  return recentAlerts.value.filter((a) => levels.includes(a.alertLevel))
 })
 
 function toggleFilter(state) {
   activeFilter.value = activeFilter.value === state ? null : state
 }
 
-const levelMap = {
-  CAUTION: 1,
-  WARNING: 2,
-  DANGER: 3,
-}
-
 function formatTime(dateStr) {
   if (!dateStr) return '-'
-  const d = new Date(dateStr)
-  return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return new Date(dateStr).toLocaleTimeString('ko-KR', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
 }
 
+// 초기 데이터 로드
 async function fetchData() {
   loading.value = true
   try {
-    const [sum, eqList, alerts] = await Promise.all([
-      api.get('/api/v1/sensor/summary'),
+    const [eqList, alerts] = await Promise.all([
       api.get('/api/v1/equipment'),
       api.get('/api/v1/alerts?size=10'),
     ])
-    summary.value = sum
-    equipmentList.value = eqList
-    recentAlerts.value = alerts.content || []
+    equipmentList.value = eqList || []
+    recentAlerts.value = (alerts.content || [])
+
+    // 초기 상태: 모두 정상(0)으로 설정
+    const stateMap = {}
+    for (const eq of equipmentList.value) {
+      stateMap[eq.eqId] = 0
+    }
+    liveStateMap.value = stateMap
   } catch (e) {
     console.error('대시보드 데이터 로드 실패', e)
   } finally {
@@ -73,7 +98,38 @@ async function fetchData() {
   }
 }
 
-onMounted(fetchData)
+onMounted(async () => {
+  await fetchData()
+  connect()
+
+  // 모든 장비의 센서 데이터 구독 → 상태 실시간 업데이트
+  for (const eq of equipmentList.value) {
+    subscribe(`/topic/sensor/${eq.eqId}`, (data) => {
+      liveStateMap.value[eq.eqId] = data.state ?? 0
+    })
+  }
+
+  // 알림 구독 → 최근 알림 실시간 추가
+  subscribe('/topic/alert', (alert) => {
+    recentAlerts.value.unshift({
+      id: alert.alertId,
+      eqId: alert.eqId,
+      alertLevel: alert.alertLevel,
+      sensorName: alert.sensorName,
+      sensorValue: alert.sensorValue,
+      thresholdValue: alert.thresholdValue,
+      createdAt: alert.createdAt,
+    })
+    // 최대 20건 유지
+    if (recentAlerts.value.length > 20) {
+      recentAlerts.value.pop()
+    }
+  })
+})
+
+onUnmounted(() => {
+  disconnect()
+})
 </script>
 
 <template>
@@ -106,13 +162,16 @@ onMounted(fetchData)
       <!-- 장비 그리드 -->
       <section class="section">
         <div class="section-header">
-          <h2 class="section-title">장비 현황</h2>
+          <h2 class="section-title">
+            장비 현황
+            <span class="section-count">({{ filteredEquipment.length }}대)</span>
+          </h2>
           <div class="filter-chips">
             <button
               class="filter-chip"
               :class="{ active: activeFilter === null }"
               @click="activeFilter = null"
-            >전체 ({{ equipmentList.length }})</button>
+            >전체</button>
             <button
               v-for="card in statusCards"
               :key="card.state"
@@ -132,7 +191,7 @@ onMounted(fetchData)
           >
             <div class="eq-card-header">
               <span class="eq-id">{{ eq.eqId }}</span>
-              <StatusBadge :state="getEquipmentState(eq.status)" :label="eq.status" />
+              <StatusBadge :state="getEqState(eq.eqId)" :label="stateLabels[getEqState(eq.eqId)]" />
             </div>
             <div class="eq-card-name">{{ eq.eqName }}</div>
             <div class="eq-card-meta">
@@ -143,11 +202,11 @@ onMounted(fetchData)
         </div>
       </section>
 
-      <!-- 최근 알림 -->
+      <!-- 최근 알림 (필터 연동) -->
       <section class="section">
         <h2 class="section-title">최근 알림</h2>
         <div class="card">
-          <table class="data-table" v-if="recentAlerts.length">
+          <table class="data-table" v-if="filteredAlerts.length">
             <thead>
               <tr>
                 <th>시간</th>
@@ -158,18 +217,20 @@ onMounted(fetchData)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="alert in recentAlerts" :key="alert.id">
+              <tr v-for="alert in filteredAlerts" :key="alert.id">
                 <td>{{ formatTime(alert.createdAt) }}</td>
                 <td>{{ alert.eqId }}</td>
                 <td>
-                  <StatusBadge :state="levelMap[alert.alertLevel] || 0" :label="alert.alertLevel" />
+                  <StatusBadge :state="levelToState[alert.alertLevel] || 0" :label="alert.alertLevel" />
                 </td>
                 <td>{{ alert.sensorName }}</td>
                 <td>{{ alert.sensorValue?.toFixed(1) }}</td>
               </tr>
             </tbody>
           </table>
-          <div v-else class="loading">알림이 없습니다</div>
+          <div v-else class="loading">
+            {{ activeFilter !== null ? '해당 등급의 알림이 없습니다' : '알림이 없습니다' }}
+          </div>
         </div>
       </section>
     </template>
@@ -234,6 +295,13 @@ onMounted(fetchData)
 .section-title {
   font-size: 18px;
   font-weight: 600;
+}
+
+.section-count {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  margin-left: 4px;
 }
 
 .filter-chips {
